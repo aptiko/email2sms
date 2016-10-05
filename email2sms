@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 email2sms - email to sms gateway
 
@@ -37,18 +37,18 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
 
-import smtpd
 import asyncore
+from configparser import ConfigParser
 import email
 import logging
-import os
-import sys
-from urllib import urlopen
 from logging.handlers import SysLogHandler
-from socket import gethostname, getfqdn
-from smtplib import SMTP
+import os
 from signal import signal, SIGTERM, SIGINT
-from ConfigParser import ConfigParser
+import smtpd
+from smtplib import SMTP
+from socket import gethostname, getfqdn
+import sys
+from urllib.request import urlopen
 
 
 def terminate(signum, frame):
@@ -56,7 +56,7 @@ def terminate(signum, frame):
     sys.exit()
 
 
-class SMSError(StandardError):
+class SMSError(Exception):
 
     def __init__(self, response):
         self.response = response
@@ -65,7 +65,8 @@ class SMSError(StandardError):
         return ('Failed to send SMS: Response was %d instead of 200; '
                 'full response was:\n%s\n') % (
                     self.response.code, ''.join(self.response.info().headers +
-                                                '\r\n' + self.response.read()))
+                                                '\r\n' +
+                                                str(self.response.read())))
 
 
 class CustomSMTPServer(smtpd.SMTPServer):
@@ -79,7 +80,7 @@ class CustomSMTPServer(smtpd.SMTPServer):
                  gethostname(), ','.join(numbers), message[:159]))
         if response.code != 200:
             raise SMSError(response)
-        logging.debug('SMS server response was: '+response.read())
+        logging.debug('SMS server response was: ' + str(response.read()))
 
     def process_message(self, peer, mailfrom, rcpttos, data):
         logging.info('Received email from ' + mailfrom)
@@ -93,7 +94,7 @@ class CustomSMTPServer(smtpd.SMTPServer):
             try:
                 self.send_sms(numbers, '%s (%s)' % (e.get_payload(),
                                                     e['date']))
-            except StandardError as e:
+            except Exception as e:
                 logging.error(str(e))
 
         # Emails
@@ -105,7 +106,7 @@ class CustomSMTPServer(smtpd.SMTPServer):
                                    int(config.get('main', 'smarthost_port')))
                 smtp_server.sendmail('root@' + getfqdn(), emailrecipients,
                                      e.as_string())
-            except StandardError as e:
+            except Exception as e:
                 logging.error(str(e))
 
 
